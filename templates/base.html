@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>小说接龙</title>
+  <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.2.0/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container">
+    <a class="navbar-brand" href="/">📖 小说接龙</a>
+    <div>
+      {% if current_user.is_authenticated %}
+        <span class="text-white me-3">{{ current_user.username }}</span>
+        <a href="/story/create" class="btn btn-outline-light btn-sm me-2">开新故事</a>
+        <a href="/logout" class="btn btn-outline-light btn-sm">退出</a>
+      {% else %}
+        <a href="/login" class="btn btn-outline-light btn-sm me-2">登录</a>
+        <a href="/register" class="btn btn-outline-light btn-sm">注册</a>
+      {% endif %}
+    </div>
+  </div>
+</nav>
+<div class="container mt-4">
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      {% for msg in messages %}
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+          {{ msg }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</div>
+<script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.2.0/js/bootstrap.bundle.min.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

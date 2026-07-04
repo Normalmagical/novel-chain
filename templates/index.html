@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>全部故事</h2>
+{% if stories %}
+<div class="list-group">
+  {% for story in stories %}
+    <a href="/story/{{ story.id }}" class="list-group-item list-group-item-action">
+      <div class="d-flex justify-content-between">
+        <strong>{{ story.title }}</strong>
+        <span class="badge bg-{{ 'success' if story.status=='finished' else 'warning' }}">
+          {{ '已完结' if story.status=='finished' else '连载中' }}
+        </span>
+      </div>
+      <small>创建者：{{ story.creator.username }} | {{ story.created_at.strftime('%Y-%m-%d') }}</small>
+    </a>
+  {% endfor %}
+</div>
+{% else %}
+<p>还没有故事，快去创建一个吧！</p>
+{% endif %}
+{% endblock %}

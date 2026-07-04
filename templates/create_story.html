@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>创建新故事</h2>
+<form method="POST">
+  <div class="mb-3">
+    <label>故事标题</label>
+    <input name="title" class="form-control" required>
+  </div>
+  <div class="mb-3">
+    <label>开头段落（支持 Markdown 语法）</label>
+    <textarea name="content" class="form-control" rows="8" required></textarea>
+  </div>
+  <button class="btn btn-primary">创建</button>
+</form>
+{% endblock %}
