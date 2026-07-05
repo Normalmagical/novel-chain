@@ -6,6 +6,7 @@
     <title>🌸 小说接龙</title>
     <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.2.0/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <style>
         :root {
             --pink-100: #fff0f5;
@@ -14,18 +15,13 @@
             --pink-400: #ff8da1;
             --purple-100: #f3e8ff;
             --purple-200: #e9d5ff;
-            --shadow-soft: 0 8px 30px rgba(255, 182, 193, 0.25);
-            --shadow-hover: 0 12px 40px rgba(255, 160, 180, 0.4);
-            --radius-lg: 24px;
-            --radius-md: 16px;
-            --radius-sm: 12px;
+            --shadow-soft: 0 8px 30px rgba(255, 182, 193, 0.3);
+            --shadow-hover: 0 15px 45px rgba(255, 130, 160, 0.45);
+            --radius-lg: 28px;
+            --radius-md: 18px;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: "Nunito", "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -33,37 +29,21 @@
             background-attachment: fixed;
             min-height: 100vh;
             overflow-x: hidden;
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="pink" opacity="0.7"/></svg>') 12 12, auto;
+        }
+        a, button, .btn, input, textarea, select {
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="12" fill="hotpink" opacity="0.8"/></svg>') 14 14, pointer;
         }
 
-        /* 可爱的雪花/花瓣背景装饰 */
-        body::before {
-            content: "🌸 ✿ ❀ ✦ 🌸 ✿ ❀ ✦";
-            position: fixed;
-            top: -10px;
-            left: 0;
-            width: 100%;
-            font-size: 2rem;
-            color: rgba(255,255,255,0.3);
-            white-space: nowrap;
-            pointer-events: none;
-            z-index: 0;
-            animation: floatText 20s linear infinite;
-        }
-        @keyframes floatText {
-            0% { transform: translateX(-10%); }
-            100% { transform: translateX(110%); }
-        }
-
-        /* 侧边导航栏 */
         .sidenav {
             position: fixed;
             left: 0;
             top: 0;
             height: 100%;
             width: 80px;
-            background: rgba(255, 245, 248, 0.8);
-            backdrop-filter: blur(20px);
-            box-shadow: 4px 0 20px rgba(255, 150, 170, 0.2);
+            background: rgba(255, 245, 248, 0.75);
+            backdrop-filter: blur(25px);
+            box-shadow: 4px 0 25px rgba(255, 150, 170, 0.3);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -74,7 +54,6 @@
         .sidenav:hover {
             width: 200px;
         }
-
         .sidenav a, .sidenav .nav-item {
             width: 100%;
             display: flex;
@@ -85,10 +64,11 @@
             text-decoration: none;
             font-weight: 700;
             border-radius: 0 30px 30px 0;
-            margin: 5px 0;
-            transition: all 0.2s;
+            margin: 8px 0;
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
             white-space: nowrap;
             overflow: hidden;
+            position: relative;
         }
         .sidenav a span, .sidenav .nav-item span {
             display: none;
@@ -98,19 +78,23 @@
             display: inline;
         }
         .sidenav a:hover, .sidenav .nav-item:hover {
-            background: rgba(255, 182, 193, 0.4);
-            transform: scale(1.05);
+            background: rgba(255, 182, 193, 0.5);
+            transform: scale(1.08) translateX(5px);
             color: #b0455a;
+            box-shadow: 0 0 20px rgba(255, 182, 193, 0.5);
         }
-
         .sidenav .brand {
-            font-size: 1.8rem;
+            font-size: 2rem;
             margin-bottom: 40px;
             font-weight: 800;
             color: #d47a8c;
+            animation: float 3s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
         }
 
-        /* 主体内容区域 */
         .main-content {
             margin-left: 100px;
             padding: 30px 40px;
@@ -124,19 +108,25 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* 卡片 */
+        /* 卡片呼吸光晕 */
         .card {
             border: none;
             border-radius: var(--radius-lg);
-            background: rgba(255, 255, 255, 0.75);
-            backdrop-filter: blur(15px);
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
             box-shadow: var(--shadow-soft);
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1.2);
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1.2);
             margin-bottom: 25px;
+            animation: breathe 4s ease-in-out infinite;
+        }
+        @keyframes breathe {
+            0%, 100% { box-shadow: 0 8px 30px rgba(255, 105, 135, 0.5); }
+            50% { box-shadow: 0 12px 50px rgba(255, 80, 120, 0.75); }
         }
         .card:hover {
+            transform: translateY(-6px) scale(1.02);
+            animation: none;
             box-shadow: var(--shadow-hover);
-            transform: translateY(-5px) scale(1.02);
         }
         .card-header {
             background: rgba(255, 240, 245, 0.8);
@@ -147,167 +137,150 @@
             backdrop-filter: blur(5px);
         }
 
-        /* 按钮水波纹效果（简单版） */
+        /* 按钮基础样式（去除之前的 ::after 动画，改为 JS 动态生成） */
         .btn {
-            border-radius: 30px;
+            border-radius: 40px;
             font-weight: 700;
-            padding: 0.5rem 1.8rem;
+            padding: 0.5rem 2rem;
             position: relative;
             overflow: hidden;
             transition: all 0.2s;
         }
-        .btn::after {
-            content: "";
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 5px;
-            height: 5px;
-            background: rgba(255, 255, 255, 0.7);
-            opacity: 0;
-            border-radius: 100%;
-            transform: scale(1, 1) translate(-50%, -50%);
-            transform-origin: 50% 50%;
-        }
-        .btn:focus:not(:active)::after {
-            animation: ripple 0.6s ease-out;
-        }
-        @keyframes ripple {
-            0% { transform: scale(0, 0); opacity: 0.5; }
-            100% { transform: scale(20, 20); opacity: 0; }
-        }
-
         .btn-primary {
             background: linear-gradient(135deg, #f8a5b7, #f78ca0);
             border: none;
             color: white;
+            box-shadow: 0 6px 20px rgba(248, 140, 160, 0.4);
         }
         .btn-primary:hover {
             background: linear-gradient(135deg, #f78ca0, #e07b8a);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(248, 140, 160, 0.5);
+            transform: translateY(-3px) scale(1.03);
+            box-shadow: 0 12px 28px rgba(248, 140, 160, 0.6);
         }
-
         .btn-outline-secondary, .btn-outline-warning, .btn-outline-danger, .btn-outline-info {
             background: transparent;
             border: 2px solid;
             backdrop-filter: blur(5px);
+            transition: all 0.2s;
+        }
+        .btn-outline-secondary:hover, .btn-outline-warning:hover, .btn-outline-danger:hover, .btn-outline-info:hover {
+            transform: translateY(-2px);
         }
 
-        /* 表单 */
         textarea.form-control, input.form-control {
             border-radius: var(--radius-md);
             border: 2px solid #ffb6c1;
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(5px);
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(10px);
             transition: all 0.3s;
         }
         textarea.form-control:focus, input.form-control:focus {
             border-color: #ff8da1;
-            box-shadow: 0 0 0 0.25rem rgba(255, 141, 161, 0.25);
+            box-shadow: 0 0 0 0.3rem rgba(255, 141, 161, 0.3), 0 0 20px rgba(255, 141, 161, 0.2);
             background: rgba(255, 255, 255, 0.9);
         }
 
-        /* 故事列表卡片特殊样式 */
         .story-card {
             background: rgba(255, 255, 255, 0.6);
-            backdrop-filter: blur(12px);
-            border-radius: 30px;
-            padding: 20px 25px;
+            backdrop-filter: blur(15px);
+            border-radius: 35px;
+            padding: 25px;
             margin-bottom: 20px;
             transition: all 0.3s;
+            animation: breathe 4.5s ease-in-out infinite;
         }
         .story-card:hover {
-            background: rgba(255, 255, 255, 0.8);
-            transform: scale(1.02);
+            background: rgba(255, 255, 255, 0.85);
+            transform: scale(1.03);
+            animation: none;
         }
 
-        /* 响应式：手机端去掉侧边栏 */
+        .alert {
+            border-radius: 20px;
+            border: none;
+            background: rgba(255, 245, 220, 0.8);
+            backdrop-filter: blur(10px);
+        }
+
         @media (max-width: 768px) {
             .sidenav {
                 width: 100%;
-                height: 70px;
+                height: 75px;
                 flex-direction: row;
                 justify-content: space-around;
                 align-items: center;
                 padding: 0;
                 position: fixed;
-                bottom: 0;                    /* 固定在底部 */
+                bottom: 0;
                 top: auto;
                 left: 0;
                 background: rgba(255, 240, 245, 0.95);
-                backdrop-filter: blur(20px);
-                border-radius: 20px 20px 0 0; /* 顶部圆角 */
-                box-shadow: 0 -4px 15px rgba(255, 160, 180, 0.4);
+                backdrop-filter: blur(25px);
+                border-radius: 25px 25px 0 0;
+                box-shadow: 0 -6px 20px rgba(255, 160, 180, 0.4);
                 z-index: 1000;
             }
-
-            /* 移动端图标变大 */
             .sidenav a, .sidenav .nav-item {
-                font-size: 1.6rem;
-                padding: 10px 0;
+                font-size: 1.7rem;
+                padding: 8px 0;
                 justify-content: center;
-                flex-direction: column;       /* 图标在上，文字在下 */
+                flex-direction: column;
+                border-radius: 20px;
             }
-
-            /* 移动端显示短文字 */
             .sidenav a span, .sidenav .nav-item span {
                 display: block;
                 font-size: 0.7rem;
-                font-weight: 600;
+                font-weight: 700;
                 margin-left: 0;
-                margin-top: 2px;
+                margin-top: 4px;
                 color: #c45b6c;
             }
-
-            /* 点击动效 */
             .sidenav a:active, .sidenav .nav-item:active {
-                transform: scale(0.9);
-                background: rgba(255, 182, 193, 0.3);
-                border-radius: 16px;
+                transform: scale(0.85);
+                background: rgba(255, 182, 193, 0.4);
             }
-
-            /* 隐藏品牌图标（可选） */
             .sidenav .brand {
                 display: none;
             }
-
             .main-content {
                 margin-left: 0;
                 margin-top: 0;
-                padding: 15px 15px 100px 15px; /* 底部留出导航栏高度 */
+                padding: 15px 15px 110px 15px;
             }
-
-            /* 底部浮动 emoji 调整位置，避免被挡住 */
             .floating-emoji {
-                display: none; /* 小屏幕上隐藏装饰，保持简洁 */
+                display: none;
+            }
+            .floating-emoji {
+                position: fixed;
+                font-size: 3rem;
+                opacity: 0.3;
+                pointer-events: none;
+                z-index: 0;
             }
         }
     </style>
 </head>
 <body>
 
-    <!-- 浮动 emoji 装饰 -->
     <div class="floating-emoji" style="top: 15%; right: 5%;">🧸</div>
     <div class="floating-emoji" style="top: 70%; left: 5%;">🍰</div>
-    <div class="floating-emoji" style="bottom: 10%; right: 10%;">🎀</div>
+    <div class="floating-emoji" style="bottom: 15%; right: 10%;">🎀</div>
 
-    <!-- 侧边导航 -->
     <div class="sidenav">
         <div class="brand">🌸</div>
-        <a href="/"><span>🏠</span> <span>首页</span></a>
+        <a href="/" hx-get="/" hx-target="#main-content" hx-push-url="true" hx-swap="innerHTML"><span>🏠</span> <span>首页</span></a>
         {% if current_user.is_authenticated %}
-            <a href="/story/create"><span>✏️</span> <span>新故事</span></a>
+            <a href="/story/create" hx-get="/story/create" hx-target="#main-content" hx-push-url="true" hx-swap="innerHTML"><span>✏️</span> <span>新故事</span></a>
+            <!-- 退出登录最好用全页面刷新，防止状态不同步 -->
             <a href="/logout"><span>🚪</span> <span>退出</span></a>
             <div class="nav-item" style="margin-top: auto; color: #d47a8c;"><span>👤</span> <span>{{ current_user.username }}</span></div>
         {% else %}
-            <a href="/login"><span>🔑</span> <span>登录</span></a>
-            <a href="/register"><span>✨</span> <span>注册</span></a>
+            <a href="/login" hx-get="/login" hx-target="#main-content" hx-push-url="true" hx-swap="innerHTML"><span>🔑</span> <span>登录</span></a>
+            <a href="/register" hx-get="/register" hx-target="#main-content" hx-push-url="true" hx-swap="innerHTML"><span>✨</span> <span>注册</span></a>
         {% endif %}
     </div>
 
-    <!-- 主内容区 -->
-    <div class="main-content">
+    <div class="main-content" id="main-content">
         {% with messages = get_flashed_messages() %}
             {% if messages %}
                 {% for msg in messages %}
@@ -324,8 +297,80 @@
 
     <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.2.0/js/bootstrap.bundle.min.js"></script>
     <script>
-        // 卡片悬停时加强阴影（已经有 CSS 了）
-        // 可添加页面滚动时导航栏阴影等效果，暂时留空
+        // ===== 统一的水波纹与延迟跳转逻辑 =====
+        function createRipple(event, element) {
+            const ripple = document.createElement('span');
+            ripple.style.position = 'absolute';
+            ripple.style.borderRadius = '50%';
+            ripple.style.background = 'rgba(255,255,255,0.7)';
+            ripple.style.width = ripple.style.height = '20px';
+            ripple.style.left = (event.clientX - element.getBoundingClientRect().left - 10) + 'px';
+            ripple.style.top = (event.clientY - element.getBoundingClientRect().top - 10) + 'px';
+            ripple.style.animation = 'ripple-anim 0.6s ease-out forwards';
+            ripple.style.pointerEvents = 'none';
+            ripple.style.zIndex = '10';
+            element.style.position = 'relative';
+            element.appendChild(ripple);
+            ripple.addEventListener('animationend', () => ripple.remove());
+        }
+
+        // 注入涟漪动画的 keyframes（与之前无关）
+        const rippleStyle = document.createElement('style');
+        rippleStyle.textContent = `
+            @keyframes ripple-anim {
+                0% { transform: scale(0); opacity: 0.7; }
+                100% { transform: scale(30); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(rippleStyle);
+
+        // 全局监听，捕获阶段
+        document.addEventListener('click', function(e) {
+            const target = e.target.closest('.btn, .sidenav a');
+            if (!target) return;
+            // 只生成波纹，不拦截事件
+            createRipple(e, target);
+        });
+
+        // ===== 爱心爆炸（保留） =====
+        function burstHearts(e, card) {
+            const hearts = ['💕','💗'];
+            const rect = card.getBoundingClientRect();
+            for (let i = 0; i < 8; i++) {
+                const heart = document.createElement('span');
+                heart.textContent = hearts[Math.floor(Math.random() * hearts.length)];
+                heart.style.position = 'absolute';
+                heart.style.left = (e.clientX - rect.left) + 'px';
+                heart.style.top = (e.clientY - rect.top) + 'px';
+                heart.style.fontSize = '1.2rem';
+                heart.style.pointerEvents = 'none';
+                heart.style.zIndex = '999';
+                heart.style.animation = `burst ${Math.random() * 0.6 + 0.4}s ease-out forwards`;
+                const angle = Math.random() * 2 * Math.PI;
+                const distance = Math.random() * 40 + 20;
+                heart.style.setProperty('--tx', Math.cos(angle) * distance + 'px');
+                heart.style.setProperty('--ty', Math.sin(angle) * distance + 'px');
+                card.style.position = 'relative';
+                card.appendChild(heart);
+                heart.addEventListener('animationend', () => heart.remove());
+            }
+        }
+
+        const burstStyle = document.createElement('style');
+        burstStyle.textContent = `
+            @keyframes burst {
+                0% { opacity: 1; transform: translate(0,0) scale(1); }
+                100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0.3); }
+            }
+        `;
+        document.head.appendChild(burstStyle);
+
+        document.addEventListener('click', function(e) {
+            const card = e.target.closest('.card, .story-card');
+            if (card && !e.target.closest('a, button, .btn, input, textarea, select, form')) {
+                burstHearts(e, card);
+            }
+        });
     </script>
     {% block scripts %}{% endblock %}
 </body>

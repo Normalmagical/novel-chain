@@ -1,0 +1,41 @@
+{# templates/index_content.html #}
+{# 这个文件仅包含页面内容片段，用于 htmx 局部刷新 #}
+
+{# 引入 flash 消息，确保 htmx 请求时也能显示提示 #}
+{% with messages = get_flashed_messages() %}
+    {% if messages %}
+        {% for msg in messages %}
+            <div class="alert alert-warning alert-dismissible fade show animate__animated animate__bounceIn" role="alert">
+                💬 {{ msg }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<h2 class="mb-4">📚 故事广场</h2>
+
+{% if stories %}
+    <div class="row">
+        {% for story in stories %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <a href="/story/{{ story.id }}" class="text-decoration-none">
+                <div class="story-card animate__animated animate__fadeInUp">
+                    <h5 class="fw-bold text-dark">{{ story.title }}</h5>
+                    <p class="mb-1 text-muted"><small>作者：{{ story.creator.username }}</small></p>
+                    <span class="badge bg-{{ 'success' if story.status=='finished' else 'warning' }}">
+                        {{ '已完结' if story.status=='finished' else '连载中' }}
+                    </span>
+                    <p class="mt-2 mb-0 text-muted"><small>{{ story.created_at.strftime('%Y-%m-%d') }}</small></p>
+                </div>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="text-center py-5">
+        <span style="font-size: 4rem;">📖</span>
+        <h4 class="mt-3 text-muted">还没有故事，快来种下一颗故事的种子吧~</h4>
+        <a href="/story/create" class="btn btn-primary mt-3">🌸 创建第一个故事</a>
+    </div>
+{% endif %}

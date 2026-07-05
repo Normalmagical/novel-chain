@@ -1,0 +1,27 @@
+{% with messages = get_flashed_messages() %}
+    {% if messages %}
+        {% for msg in messages %}
+            <div class="alert alert-warning alert-dismissible fade show animate__animated animate__bounceIn" role="alert">
+                💬 {{ msg }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<h2>创建新故事</h2>
+<form method="POST">
+  <div class="mb-3">
+    <label>故事标题</label>
+    <input name="title" class="form-control" required>
+  </div>
+  <div class="mb-3">
+    <label>开头段落（支持 Markdown 语法）</label>
+    <textarea name="content" class="form-control" rows="8" required></textarea>
+  </div>
+  <div class="mb-3">
+      <label>备注（可选，如角色说明、心情等）</label>
+      <input type="text" name="note" class="form-control" placeholder="可以在这里写点感想...">
+  </div>
+  <button class="btn btn-primary">创建</button>
+</form>

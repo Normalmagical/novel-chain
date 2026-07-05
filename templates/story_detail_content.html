@@ -1,0 +1,113 @@
+{# templates/story_detail_content.html #}
+
+{% with messages = get_flashed_messages() %}
+    {% if messages %}
+        {% for msg in messages %}
+            <div class="alert alert-warning alert-dismissible fade show animate__animated animate__bounceIn" role="alert">
+                💬 {{ msg }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<div class="d-flex justify-content-between">
+  <h2>📜 {{ story.title }}</h2>
+  <div>
+    <a href="/story/{{ story.id }}/export" class="btn btn-outline-secondary">导出 HTML</a>
+    {% if current_user.is_authenticated and current_user.id == story.creator_id and story.status=='ongoing' %}
+      <form method="POST" action="/story/{{ story.id }}/finish" style="display:inline">
+        <button class="btn btn-outline-warning">完结故事</button>
+      </form>
+    {% endif %}
+    {% if current_user.is_authenticated and (current_user.id == story.creator_id or current_user.is_admin) %}
+      <form method="POST" action="/story/{{ story.id }}/delete" style="display:inline" onsubmit="return confirm('确定要删除这个故事吗？')">
+        <button type="submit" class="btn btn-outline-danger">删除故事</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+<hr>
+
+{# 显示所有接龙段落 #}
+{% for entry in entries %}
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <div>
+      <strong>#{{ loop.index }} {{ entry.author.username }}</strong>
+      <small class="text-muted ms-2">{{ entry.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+    </div>
+    {% if current_user.is_authenticated and (current_user.id == story.creator_id or current_user.is_admin) %}
+      <form method="POST" action="{{ url_for('delete_entry', story_id=story.id, entry_id=entry.id) }}" onsubmit="return confirm('确定要删除这段接龙吗？')">
+        <button type="submit" class="btn btn-sm btn-outline-danger">删除</button>
+      </form>
+    {% endif %}
+  </div>
+  <div class="card-body">
+      {% if entry.note %}
+      <div class="alert alert-light py-1 px-2 mb-2" style="border-left: 4px solid #b45f3a; font-size: 0.9em; color: #5c4a3a;">
+          💬 {{ entry.note }}
+      </div>
+      {% endif %}
+      {{ entry.content|markdown }}
+  </div>
+</div>
+{% endfor %}
+
+{# 接龙表单（仅满足条件时显示） #}
+{% if current_user.is_authenticated and can_chain %}
+  <div class="card mt-4">
+    <div class="card-header">✏️ 接龙下一段</div>
+    <div class="card-body">
+      <form method="POST" id="chain-form">
+          <textarea name="content" id="content-input" class="form-control" rows="6" placeholder="用 Markdown 写下一段..."></textarea>
+          <input type="text" name="note" class="form-control mt-2" placeholder="备注（可选）：角色、心情、说明...">
+          <div class="mt-2">
+              <button type="button" class="btn btn-sm btn-outline-info" id="upload-btn">📷 插入图片</button>
+              <input type="file" id="image-input" accept="image/*" style="display:none">
+              <small class="text-muted ms-2">支持拖拽/粘贴图片，或点击按钮上传</small>
+          </div>
+          <button type="submit" class="btn btn-primary mt-3">提交接龙</button>
+      </form>
+    </div>
+  </div>
+{% elif not current_user.is_authenticated %}
+  <div class="alert alert-info">请 <a href="/login">登录</a> 后参与接龙</div>
+{% else %}
+  <div class="alert alert-secondary">您暂时不能接龙（上一段是您写的，或故事已完结）</div>
+{% endif %}
+
+<script>
+// 简单的图片上传与插入逻辑
+const contentInput = document.getElementById('content-input');
+const uploadBtn = document.getElementById('upload-btn');
+const imageInput = document.getElementById('image-input');
+
+if (uploadBtn) {  // 多加一层保护，防止找不到元素时报错
+    uploadBtn.addEventListener('click', () => imageInput.click());
+}
+
+if (imageInput) {
+    imageInput.addEventListener('change', async () => {
+        const file = imageInput.files[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append('image', file);
+        try {
+            const resp = await fetch('/upload_image', { method: 'POST', body: formData });
+            const data = await resp.json();
+            if (data.url) {
+                const text = `![图片](${data.url})`;
+                const start = contentInput.selectionStart;
+                const end = contentInput.selectionEnd;
+                contentInput.value = contentInput.value.substring(0, start) + text + contentInput.value.substring(end);
+            } else {
+                alert('上传失败: ' + (data.error || '未知错误'));
+            }
+        } catch(e) {
+            alert('上传异常');
+        }
+        imageInput.value = '';
+    });
+}
+</script>

@@ -2,8 +2,14 @@ import os
 from datetime import datetime
 from flask_login import AnonymousUserMixin
 from markupsafe import Markup
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file
-from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask import (
+    Flask, render_template, request, redirect,
+    url_for, flash, send_file, make_response
+)
+from flask_login import (
+    LoginManager, login_user, logout_user,
+    login_required, current_user
+)
 from werkzeug.utils import secure_filename
 import uuid
 import markdown as md_lib
@@ -16,6 +22,7 @@ app.config.from_object(Config)
 
 db.init_app(app)
 login_manager = LoginManager(app)
+
 class AnonymousUser(AnonymousUserMixin):
     is_admin = False
 
@@ -39,13 +46,25 @@ def render_markdown(text):
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'jpg', 'jpeg', 'png', 'gif'}
 
+# ========== 新增：htmx 局部渲染辅助函数 ==========
+def render_page(full_template, content_template, **kwargs):
+    """
+    若请求来自 htmx (请求头 HX-Request 存在)，只渲染内容片段；
+    否则渲染完整页面（含侧边栏）。
+    注意：内容片段中应包含 flash 消息的展示。
+    """
+    if request.headers.get('HX-Request'):
+        return render_template(content_template, **kwargs)
+    return render_template(full_template, **kwargs)
+# =============================================
+
 # ---------- 首页 ----------
 @app.route('/')
 def index():
     stories = Story.query.order_by(Story.created_at.desc()).all()
-    return render_template('index.html', stories=stories)
+    # 修改：使用 render_page，需提供 index_content.html
+    return render_page('index.html', 'index_content.html', stories=stories)
 
-# ---------- 注册 ----------
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -53,15 +72,22 @@ def register():
         password = request.form['password']
         if User.query.filter_by(username=username).first():
             flash('用户名已存在')
-            return redirect(url_for('register'))
+            return render_page('register.html', 'register_content.html')
         user = User(username=username, password=password)
         db.session.add(user)
         db.session.commit()
         login_user(user)
-        return redirect(url_for('index'))
-    return render_template('register.html')
 
-# ---------- 登录 ----------
+        # 🔧 关键修改：区分 htmx 和普通请求
+        if request.headers.get('HX-Request'):
+            resp = make_response('', 200)
+            resp.headers['HX-Redirect'] = url_for('index')
+            return resp
+        else:
+            return redirect(url_for('index'))
+
+    return render_page('register.html', 'register_content.html')
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -70,9 +96,15 @@ def login():
         user = User.query.filter_by(username=username, password=password).first()
         if user:
             login_user(user)
-            return redirect(url_for('index'))
+            if request.headers.get('HX-Request'):
+                resp = make_response('', 200)
+                resp.headers['HX-Redirect'] = url_for('index')
+                return resp
+            else:
+                return redirect(url_for('index'))
         flash('用户名或密码错误')
-    return render_template('login.html')
+        return render_page('login.html', 'login_content.html')
+    return render_page('login.html', 'login_content.html')
 
 # ---------- 登出 ----------
 @app.route('/logout')
@@ -85,7 +117,7 @@ def logout():
 @login_required
 def create_story():
     if request.method == 'POST':
-    # 非管理员才检查每日限制
+        # 非管理员才检查每日限制
         if not current_user.is_admin:
             today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
             today_count = Story.query.filter(
@@ -96,7 +128,6 @@ def create_story():
                 flash('每个账号每天只能创建一个新故事，请明天再来')
                 return redirect(url_for('create_story'))
         # ------------------------------------------
-
         title = request.form['title'].strip()
         content = request.form['content']
         note = request.form.get('note', '').strip()
@@ -107,13 +138,14 @@ def create_story():
         db.session.add(story)
         db.session.flush()
         entry = Entry(content=content,
-              note=note if note else None,
-              story_id=story.id,
-              user_id=current_user.id)
+                      note=note if note else None,
+                      story_id=story.id,
+                      user_id=current_user.id)
         db.session.add(entry)
         db.session.commit()
         return redirect(url_for('story_detail', story_id=story.id))
-    return render_template('create_story.html')
+    # GET 请求使用局部渲染
+    return render_page('create_story.html', 'create_story_content.html')
 
 # ---------- 故事详情 + 接龙 ----------
 @app.route('/story/<int:story_id>', methods=['GET', 'POST'])
@@ -135,13 +167,14 @@ def story_detail(story_id):
         if not content:
             flash('接龙内容不能为空')
         else:
-            entry = Entry(content=content, note=note if note else None, story_id=story.id, user_id=current_user.id)
+            entry = Entry(content=content, note=note if note else None,
+                          story_id=story.id, user_id=current_user.id)
             db.session.add(entry)
             db.session.commit()
             return redirect(url_for('story_detail', story_id=story.id))
-    return render_template('story_detail.html',
-                           story=story, entries=entries,
-                           can_chain=can_chain)
+    # 使用局部渲染
+    return render_page('story_detail.html', 'story_detail_content.html',
+                       story=story, entries=entries, can_chain=can_chain)
 
 # ---------- 完结故事 ----------
 @app.route('/story/<int:story_id>/finish', methods=['POST'])
@@ -177,7 +210,7 @@ def export_html(story_id):
     story = Story.query.get_or_404(story_id)
     entries = story.entries
 
-    # ---------- 内嵌可爱风格 CSS ----------
+    # ---------- 内嵌可爱风格 CSS（保持不变） ----------
     style = '''
     <style>
         :root {
@@ -204,7 +237,6 @@ def export_html(story_id):
             overflow-x: hidden;
         }
 
-        /* 背景浮动小装饰 */
         body::before {
             content: "🌸 ✿ ❀ ✦ 🎀";
             position: fixed;
@@ -223,7 +255,6 @@ def export_html(story_id):
             100% { transform: translateX(110%); }
         }
 
-        /* 主体容器 */
         .container {
             max-width: 800px;
             margin: 0 auto;
@@ -236,7 +267,6 @@ def export_html(story_id):
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* 标题 */
         h1 {
             text-align: center;
             font-size: 2.5em;
@@ -249,7 +279,6 @@ def export_html(story_id):
             content: "🌸 ";
         }
 
-        /* 元信息 */
         .meta {
             text-align: center;
             color: #b87d8b;
@@ -262,7 +291,6 @@ def export_html(story_id):
             backdrop-filter: blur(10px);
         }
 
-        /* 段落卡片 */
         .entry {
             background: rgba(255, 255, 255, 0.75);
             backdrop-filter: blur(15px);
@@ -299,7 +327,6 @@ def export_html(story_id):
             color: #b87d8b;
         }
 
-        /* 备注 */
         .entry-note {
             font-size: 0.9em;
             color: #8b6b7a;
@@ -311,7 +338,6 @@ def export_html(story_id):
             font-style: italic;
         }
 
-        /* 正文 */
         .entry-content {
             font-size: 1.05em;
             text-align: justify;
@@ -323,7 +349,6 @@ def export_html(story_id):
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
 
-        /* 底部 */
         .footer {
             text-align: center;
             margin-top: 3em;
@@ -336,7 +361,6 @@ def export_html(story_id):
             backdrop-filter: blur(10px);
         }
 
-        /* 右下角固定小熊 */
         .fixed-bear {
             position: fixed;
             bottom: 20px;
@@ -347,7 +371,6 @@ def export_html(story_id):
             z-index: 2;
         }
 
-        /* 打印时简化（可选） */
         @media print {
             body {
                 background: white;
@@ -388,7 +411,6 @@ def export_html(story_id):
         ''')
 
     html_parts.append('<div style="text-align:center;"><div class="footer">✨ 由「小说接龙」生成 · 可离线阅读</div></div>')
-    # 可爱小熊
     html_parts.append('<div class="fixed-bear">🧸</div>')
 
     full_html = f'''<!DOCTYPE html>
@@ -410,19 +432,17 @@ def export_html(story_id):
     tmp.write(full_html)
     tmp.close()
     return send_file(tmp.name, as_attachment=True, download_name=f'{story.title}.html')
+
 # ---------- 删除故事 ----------
 @app.route('/story/<int:story_id>/delete', methods=['POST'])
 @login_required
 def delete_story(story_id):
     story = Story.query.get_or_404(story_id)
-    # 允许创建者或管理员删除
     if story.creator_id != current_user.id and not current_user.is_admin:
         flash('只有故事创建者或管理员才能删除')
         return redirect(url_for('story_detail', story_id=story.id))
     
-    # 删除所有关联的接龙段落
     Entry.query.filter_by(story_id=story.id).delete()
-    # 删除故事本身
     db.session.delete(story)
     db.session.commit()
     flash('故事已删除')
@@ -433,13 +453,11 @@ def delete_story(story_id):
 @login_required
 def delete_entry(story_id, entry_id):
     story = Story.query.get_or_404(story_id)
-    # 允许故事创建者或管理员删除
     if story.creator_id != current_user.id and not current_user.is_admin:
         flash('只有故事创建者或管理员才能删除接龙段落')
         return redirect(url_for('story_detail', story_id=story.id))
 
     entry = Entry.query.get_or_404(entry_id)
-    # 确认该段落属于当前故事
     if entry.story_id != story.id:
         flash('段落不属于此故事')
         return redirect(url_for('story_detail', story_id=story.id))

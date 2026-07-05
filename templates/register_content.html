@@ -1,5 +1,16 @@
-{% extends "base.html" %}
-{% block content %}
+{# 注册页面内容片段（用于 htmx 局部刷新） #}
+
+{% with messages = get_flashed_messages() %}
+    {% if messages %}
+        {% for msg in messages %}
+            <div class="alert alert-warning alert-dismissible fade show animate__animated animate__bounceIn" role="alert">
+                💬 {{ msg }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
 <div class="row justify-content-center mt-4">
   <div class="col-md-6 col-lg-5">
     <div class="card p-4 animate__animated animate__fadeInUp">
@@ -8,7 +19,7 @@
         <h3 class="fw-bold" style="color: #d47a8c;">加入我们</h3>
         <p class="text-muted">创建一个账号，开始书写故事</p>
       </div>
-      <form method="POST">
+      <form method="POST" hx-post="/register" hx-target="#main-content" hx-swap="innerHTML">
         <div class="mb-3">
           <label for="username" class="form-label fw-semibold">用户名</label>
           <input type="text" name="username" id="username" class="form-control" required autofocus>
@@ -17,13 +28,12 @@
           <label for="password" class="form-label fw-semibold">密码</label>
           <input type="password" name="password" id="password" class="form-control" required>
         </div>
-        <button type="submit" class="btn btn-success w-100 mt-3" style="background: linear-gradient(135deg, #f8a5b7, #f78ca0); border:none;">✨ 注册</button>
+        <button type="submit" class="btn w-100 mt-3" style="background: linear-gradient(135deg, #f8a5b7, #f78ca0); border:none; color:white;">✨ 注册</button>
       </form>
       <div class="text-center mt-3">
         <span class="text-muted">已有账号？</span>
-        <a href="{{ url_for('login') }}" class="fw-bold">🔑 去登录</a>
+        <a href="/login" hx-get="/login" hx-target="#main-content" hx-push-url="true" hx-swap="innerHTML" class="fw-bold">🔑 去登录</a>
       </div>
     </div>
   </div>
 </div>
-{% endblock %}
