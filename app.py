@@ -1,5 +1,6 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file
+from datetime import datetime
+from flask_login import AnonymousUserMixin
 from markupsafe import Markup
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
@@ -15,6 +16,10 @@ app.config.from_object(Config)
 
 db.init_app(app)
 login_manager = LoginManager(app)
+class AnonymousUser(AnonymousUserMixin):
+    is_admin = False
+
+login_manager.anonymous_user = AnonymousUser
 login_manager.login_view = 'login'
 
 @login_manager.user_loader
@@ -80,15 +85,31 @@ def logout():
 @login_required
 def create_story():
     if request.method == 'POST':
+    # 非管理员才检查每日限制
+        if not current_user.is_admin:
+            today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            today_count = Story.query.filter(
+                Story.creator_id == current_user.id,
+                Story.created_at >= today_start
+            ).count()
+            if today_count >= 1:
+                flash('每个账号每天只能创建一个新故事，请明天再来')
+                return redirect(url_for('create_story'))
+        # ------------------------------------------
+
         title = request.form['title'].strip()
         content = request.form['content']
+        note = request.form.get('note', '').strip()
         if not title or not content:
             flash('标题和内容不能为空')
             return redirect(url_for('create_story'))
         story = Story(title=title, creator=current_user, status='ongoing')
         db.session.add(story)
         db.session.flush()
-        entry = Entry(content=content, story_id=story.id, user_id=current_user.id)
+        entry = Entry(content=content,
+              note=note if note else None,
+              story_id=story.id,
+              user_id=current_user.id)
         db.session.add(entry)
         db.session.commit()
         return redirect(url_for('story_detail', story_id=story.id))
@@ -110,10 +131,11 @@ def story_detail(story_id):
 
     if request.method == 'POST' and current_user.is_authenticated and can_chain:
         content = request.form.get('content', '').strip()
+        note = request.form.get('note', '').strip()
         if not content:
             flash('接龙内容不能为空')
         else:
-            entry = Entry(content=content, story_id=story.id, user_id=current_user.id)
+            entry = Entry(content=content, note=note if note else None, story_id=story.id, user_id=current_user.id)
             db.session.add(entry)
             db.session.commit()
             return redirect(url_for('story_detail', story_id=story.id))
@@ -150,101 +172,209 @@ def upload_image():
     return {'error': '不支持的文件类型'}, 400
 
 # ---------- 导出 HTML ----------
-# ---------- 导出 HTML（美化版） ----------
 @app.route('/story/<int:story_id>/export')
 def export_html(story_id):
     story = Story.query.get_or_404(story_id)
     entries = story.entries
 
-    # ---------- 内嵌 CSS 样式 ----------
+    # ---------- 内嵌可爱风格 CSS ----------
     style = '''
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: "Segoe UI", "Noto Serif SC", "华文楷体", Georgia, serif;
-            background: #fdfaf6;
-            color: #333;
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 20px;
-            line-height: 1.8;
+        :root {
+            --pink-100: #fff0f5;
+            --pink-200: #ffe4ec;
+            --pink-300: #ffb6c1;
+            --pink-400: #ff8da1;
+            --purple-100: #f3e8ff;
+            --shadow-soft: 0 8px 30px rgba(255, 182, 193, 0.25);
+            --radius-lg: 24px;
         }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: "Nunito", "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+            background: linear-gradient(135deg, #fce4ec 0%, #f8bbd0 30%, #e1bee7 70%, #f3e5f5 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            padding: 40px 20px;
+            color: #5c3d4e;
+            line-height: 1.8;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* 背景浮动小装饰 */
+        body::before {
+            content: "🌸 ✿ ❀ ✦ 🎀";
+            position: fixed;
+            top: -10px;
+            left: 0;
+            width: 100%;
+            font-size: 2rem;
+            color: rgba(255,255,255,0.35);
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 0;
+            animation: floatText 20s linear infinite;
+        }
+        @keyframes floatText {
+            0% { transform: translateX(-10%); }
+            100% { transform: translateX(110%); }
+        }
+
+        /* 主体容器 */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+            animation: fadeInUp 0.8s ease;
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 标题 */
         h1 {
             text-align: center;
-            font-size: 2.2em;
-            margin-bottom: 0.3em;
-            color: #4a2c2a;
-            border-bottom: 2px solid #d9b382;
-            padding-bottom: 0.3em;
+            font-size: 2.5em;
+            color: #d47a8c;
+            margin-bottom: 0.2em;
+            text-shadow: 2px 2px 0 rgba(255,255,255,0.7);
+            position: relative;
         }
+        h1::before {
+            content: "🌸 ";
+        }
+
+        /* 元信息 */
         .meta {
             text-align: center;
-            color: #888;
-            font-size: 0.9em;
+            color: #b87d8b;
+            font-size: 1em;
             margin-bottom: 2em;
+            background: rgba(255,255,255,0.6);
+            display: inline-block;
+            padding: 6px 20px;
+            border-radius: 30px;
+            backdrop-filter: blur(10px);
         }
+
+        /* 段落卡片 */
         .entry {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(15px);
+            border-radius: var(--radius-lg);
+            padding: 1.2em 1.8em;
             margin-bottom: 2em;
-            padding: 1em 1.5em;
-            background: #fffbf5;
-            border-radius: 8px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-            transition: 0.2s;
+            box-shadow: var(--shadow-soft);
+            transition: transform 0.3s, box-shadow 0.3s;
         }
         .entry:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-3px);
+            box-shadow: 0 12px 36px rgba(255, 160, 180, 0.4);
         }
+
         .entry-header {
             display: flex;
             align-items: baseline;
             margin-bottom: 0.8em;
-            border-bottom: 1px dashed #e0cfba;
-            padding-bottom: 0.4em;
+            border-bottom: 2px dashed #fcc8d0;
+            padding-bottom: 0.5em;
+            color: #c45b6c;
+            font-weight: 700;
         }
         .entry-number {
-            font-weight: bold;
-            font-size: 1.2em;
-            color: #b45f3a;
-            margin-right: 0.5em;
+            font-size: 1.3em;
+            margin-right: 8px;
+            color: #ff8da1;
         }
         .entry-author {
-            font-weight: bold;
-            color: #5c3d2e;
+            margin-right: auto;
         }
         .entry-time {
-            margin-left: auto;
             font-size: 0.85em;
-            color: #999;
+            color: #b87d8b;
         }
+
+        /* 备注 */
+        .entry-note {
+            font-size: 0.9em;
+            color: #8b6b7a;
+            margin-bottom: 1em;
+            padding: 6px 12px;
+            background: rgba(255, 240, 245, 0.7);
+            border-left: 4px solid #ffb6c1;
+            border-radius: 8px;
+            font-style: italic;
+        }
+
+        /* 正文 */
         .entry-content {
             font-size: 1.05em;
             text-align: justify;
         }
         .entry-content img {
             max-width: 100%;
-            height: auto;
-            border-radius: 4px;
-            margin: 0.5em 0;
+            border-radius: 12px;
+            margin: 0.8em 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
+
+        /* 底部 */
         .footer {
             text-align: center;
             margin-top: 3em;
-            color: #bbb;
-            font-size: 0.85em;
-            border-top: 1px solid #eaeaea;
-            padding-top: 1em;
+            color: #d8b0b8;
+            font-size: 0.9em;
+            background: rgba(255,255,255,0.5);
+            padding: 10px 20px;
+            border-radius: 30px;
+            display: inline-block;
+            backdrop-filter: blur(10px);
+        }
+
+        /* 右下角固定小熊 */
+        .fixed-bear {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            font-size: 3rem;
+            opacity: 0.4;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        /* 打印时简化（可选） */
+        @media print {
+            body {
+                background: white;
+                color: black;
+            }
+            .entry {
+                box-shadow: none;
+                border: 1px solid #ddd;
+            }
+            .fixed-bear, body::before {
+                display: none;
+            }
         }
     </style>
     '''
 
-    # ---------- 构建内容 ----------
+    # ---------- 构建 HTML 内容 ----------
     html_parts = [f'<h1>{story.title}</h1>']
-    html_parts.append(f'<div class="meta">共 {len(entries)} 段 · 创作于 {story.created_at.strftime("%Y-%m-%d")} · 状态：{"已完结" if story.status=="finished" else "连载中"}</div>')
+    html_parts.append(f'<div style="text-align:center;"><span class="meta">共 {len(entries)} 段 · 创作于 {story.created_at.strftime("%Y-%m-%d")} · {"已完结" if story.status=="finished" else "连载中"}</span></div>')
 
     for i, entry in enumerate(entries, 1):
         author = entry.author.username
         time_str = entry.created_at.strftime('%Y-%m-%d %H:%M')
         body = md_lib.markdown(entry.content, extensions=['extra', 'nl2br'])
+        note_html = ''
+        if entry.note:
+            note_html = f'<div class="entry-note">💬 {entry.note}</div>'
         html_parts.append(f'''
         <div class="entry">
             <div class="entry-header">
@@ -252,11 +382,14 @@ def export_html(story_id):
                 <span class="entry-author">{author}</span>
                 <span class="entry-time">{time_str}</span>
             </div>
+            {note_html}
             <div class="entry-content">{body}</div>
         </div>
         ''')
 
-    html_parts.append('<div class="footer">✨ 由「小说接龙」生成 · 可离线阅读</div>')
+    html_parts.append('<div style="text-align:center;"><div class="footer">✨ 由「小说接龙」生成 · 可离线阅读</div></div>')
+    # 可爱小熊
+    html_parts.append('<div class="fixed-bear">🧸</div>')
 
     full_html = f'''<!DOCTYPE html>
 <html lang="zh">
@@ -266,7 +399,9 @@ def export_html(story_id):
     {style}
 </head>
 <body>
-    {"".join(html_parts)}
+    <div class="container">
+        {"".join(html_parts)}
+    </div>
 </body>
 </html>'''
 
@@ -275,21 +410,14 @@ def export_html(story_id):
     tmp.write(full_html)
     tmp.close()
     return send_file(tmp.name, as_attachment=True, download_name=f'{story.title}.html')
-
-@app.template_filter('markdown')
-def render_markdown(text):
-    import markdown
-    # safe_mode 或 extensions 根据需要调整
-    return markdown.markdown(text, extensions=['extra', 'nl2br'])
-
 # ---------- 删除故事 ----------
 @app.route('/story/<int:story_id>/delete', methods=['POST'])
 @login_required
 def delete_story(story_id):
     story = Story.query.get_or_404(story_id)
-    # 只允许故事创建者删除
-    if story.creator_id != current_user.id:
-        flash('只有故事创建者才能删除')
+    # 允许创建者或管理员删除
+    if story.creator_id != current_user.id and not current_user.is_admin:
+        flash('只有故事创建者或管理员才能删除')
         return redirect(url_for('story_detail', story_id=story.id))
     
     # 删除所有关联的接龙段落
@@ -299,6 +427,27 @@ def delete_story(story_id):
     db.session.commit()
     flash('故事已删除')
     return redirect(url_for('index'))
+
+# ---------- 删除接龙段落 ----------
+@app.route('/story/<int:story_id>/entry/<int:entry_id>/delete', methods=['POST'])
+@login_required
+def delete_entry(story_id, entry_id):
+    story = Story.query.get_or_404(story_id)
+    # 允许故事创建者或管理员删除
+    if story.creator_id != current_user.id and not current_user.is_admin:
+        flash('只有故事创建者或管理员才能删除接龙段落')
+        return redirect(url_for('story_detail', story_id=story.id))
+
+    entry = Entry.query.get_or_404(entry_id)
+    # 确认该段落属于当前故事
+    if entry.story_id != story.id:
+        flash('段落不属于此故事')
+        return redirect(url_for('story_detail', story_id=story.id))
+
+    db.session.delete(entry)
+    db.session.commit()
+    flash('段落已删除')
+    return redirect(url_for('story_detail', story_id=story.id))
 
 if __name__ == '__main__':
     app.run(debug=True)

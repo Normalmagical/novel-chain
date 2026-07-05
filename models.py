@@ -8,6 +8,8 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(100), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False) 
+    entries = db.relationship('Entry', backref='author', lazy=True)
 
 class Story(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -21,7 +23,7 @@ class Story(db.Model):
 class Entry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.Text, nullable=False)
+    note = db.Column(db.Text, nullable=True) 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     story_id = db.Column(db.Integer, db.ForeignKey('story.id'))
-    author = db.relationship('User', backref='entries')

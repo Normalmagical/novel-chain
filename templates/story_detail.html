@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="d-flex justify-content-between">
-  <h2>{{ story.title }}</h2>
+  <h2>📜 {{ story.title }}</h2>
   <div>
     <a href="/story/{{ story.id }}/export" class="btn btn-outline-secondary">导出 HTML</a>
     {% if current_user.is_authenticated and current_user.id == story.creator_id and story.status=='ongoing' %}
@@ -9,8 +9,8 @@
         <button class="btn btn-outline-warning">完结故事</button>
       </form>
     {% endif %}
-    {% if current_user.is_authenticated and current_user.id == story.creator_id %}
-      <form method="POST" action="/story/{{ story.id }}/delete" style="display:inline" onsubmit="return confirm('确定要删除这个故事吗？所有接龙内容都会被删除，且无法恢复。')">
+    {% if current_user.is_authenticated and (current_user.id == story.creator_id or current_user.is_admin) %}
+      <form method="POST" action="/story/{{ story.id }}/delete" style="display:inline" onsubmit="return confirm('确定要删除这个故事吗？')">
         <button type="submit" class="btn btn-outline-danger">删除故事</button>
       </form>
     {% endif %}
@@ -21,13 +21,24 @@
 {# 显示所有接龙段落 #}
 {% for entry in entries %}
 <div class="card mb-3">
-  <div class="card-header">
-    <strong>#{{ loop.index }} {{ entry.author.username }}</strong>
-    <small class="text-muted">{{ entry.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <div>
+      <strong>#{{ loop.index }} {{ entry.author.username }}</strong>
+      <small class="text-muted ms-2">{{ entry.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+    </div>
+    {% if current_user.is_authenticated and (current_user.id == story.creator_id or current_user.is_admin) %}
+      <form method="POST" action="{{ url_for('delete_entry', story_id=story.id, entry_id=entry.id) }}" onsubmit="return confirm('确定要删除这段接龙吗？')">
+        <button type="submit" class="btn btn-sm btn-outline-danger">删除</button>
+      </form>
+    {% endif %}
   </div>
   <div class="card-body">
-    {# 渲染 Markdown 为 HTML #}
-    {{ entry.content|markdown }}
+      {% if entry.note %}
+      <div class="alert alert-light py-1 px-2 mb-2" style="border-left: 4px solid #b45f3a; font-size: 0.9em; color: #5c4a3a;">
+          💬 {{ entry.note }}
+      </div>
+      {% endif %}
+      {{ entry.content|markdown }}
   </div>
 </div>
 {% endfor %}
@@ -38,13 +49,14 @@
     <div class="card-header">✏️ 接龙下一段</div>
     <div class="card-body">
       <form method="POST" id="chain-form">
-        <textarea name="content" id="content-input" class="form-control" rows="6" placeholder="用 Markdown 写下一段..."></textarea>
-        <div class="mt-2">
-          <button type="button" class="btn btn-sm btn-outline-info" id="upload-btn">📷 插入图片</button>
-          <input type="file" id="image-input" accept="image/*" style="display:none">
-          <small class="text-muted ms-2">支持拖拽/粘贴图片，或点击按钮上传</small>
-        </div>
-        <button type="submit" class="btn btn-primary mt-3">提交接龙</button>
+          <textarea name="content" id="content-input" class="form-control" rows="6" placeholder="用 Markdown 写下一段..."></textarea>
+          <input type="text" name="note" class="form-control mt-2" placeholder="备注（可选）：角色、心情、说明...">
+          <div class="mt-2">
+              <button type="button" class="btn btn-sm btn-outline-info" id="upload-btn">📷 插入图片</button>
+              <input type="file" id="image-input" accept="image/*" style="display:none">
+              <small class="text-muted ms-2">支持拖拽/粘贴图片，或点击按钮上传</small>
+          </div>
+          <button type="submit" class="btn btn-primary mt-3">提交接龙</button>
       </form>
     </div>
   </div>
