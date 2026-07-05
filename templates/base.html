@@ -224,53 +224,64 @@
 
         /* 响应式：手机端去掉侧边栏 */
         @media (max-width: 768px) {
-        .sidenav {
-            width: 100%;
-            height: 70px;
-            flex-direction: row;
-            justify-content: space-around;
-            align-items: center;
-            padding-top: 0;
-            background: rgba(255, 240, 245, 0.95);  /* 半透明粉色背景，更显眼 */
-            backdrop-filter: blur(20px);
-            border-radius: 0 0 20px 20px;
-            box-shadow: 0 4px 15px rgba(255, 160, 180, 0.4);
-            z-index: 1000;
-        }
+            .sidenav {
+                width: 100%;
+                height: 70px;
+                flex-direction: row;
+                justify-content: space-around;
+                align-items: center;
+                padding: 0;
+                position: fixed;
+                bottom: 0;                    /* 固定在底部 */
+                top: auto;
+                left: 0;
+                background: rgba(255, 240, 245, 0.95);
+                backdrop-filter: blur(20px);
+                border-radius: 20px 20px 0 0; /* 顶部圆角 */
+                box-shadow: 0 -4px 15px rgba(255, 160, 180, 0.4);
+                z-index: 1000;
+            }
 
-        /* 移动端图标变大，更容易点按 */
-        .sidenav a, .sidenav .nav-item {
-            font-size: 1.6rem;
-            padding: 10px 0;
-            justify-content: center;
-        }
+            /* 移动端图标变大 */
+            .sidenav a, .sidenav .nav-item {
+                font-size: 1.6rem;
+                padding: 10px 0;
+                justify-content: center;
+                flex-direction: column;       /* 图标在上，文字在下 */
+            }
 
-        /* 移动端不显示文字（保留简洁），如果想让文字也显示出来，可以去掉下面这句 */
-        .sidenav a span, .sidenav .nav-item span {
-            display: none;
-        }
+            /* 移动端显示短文字 */
+            .sidenav a span, .sidenav .nav-item span {
+                display: block;
+                font-size: 0.7rem;
+                font-weight: 600;
+                margin-left: 0;
+                margin-top: 2px;
+                color: #c45b6c;
+            }
 
-        /* 手机端点击时加个微动效 */
-        .sidenav a:active, .sidenav .nav-item:active {
-            transform: scale(0.9);
-            background: rgba(255, 182, 193, 0.3);
-            border-radius: 20px;
-        }
+            /* 点击动效 */
+            .sidenav a:active, .sidenav .nav-item:active {
+                transform: scale(0.9);
+                background: rgba(255, 182, 193, 0.3);
+                border-radius: 16px;
+            }
 
-        .main-content {
-            margin-left: 0;
-            margin-top: 90px;  /* 留出顶部导航栏的高度 */
-            padding: 15px;
-        }
-    }
+            /* 隐藏品牌图标（可选） */
+            .sidenav .brand {
+                display: none;
+            }
 
-        /* 浮动装饰 */
-        .floating-emoji {
-            position: fixed;
-            font-size: 3rem;
-            opacity: 0.25;
-            z-index: 0;
-            pointer-events: none;
+            .main-content {
+                margin-left: 0;
+                margin-top: 0;
+                padding: 15px 15px 100px 15px; /* 底部留出导航栏高度 */
+            }
+
+            /* 底部浮动 emoji 调整位置，避免被挡住 */
+            .floating-emoji {
+                display: none; /* 小屏幕上隐藏装饰，保持简洁 */
+            }
         }
     </style>
 </head>
