@@ -224,28 +224,45 @@
 
         /* 响应式：手机端去掉侧边栏 */
         @media (max-width: 768px) {
-            .sidenav {
-                width: 100%;
-                height: 60px;
-                flex-direction: row;
-                justify-content: space-around;
-                align-items: center;
-                padding-top: 0;
-                backdrop-filter: blur(20px);
-                border-radius: 0 0 20px 20px;
-            }
-            .sidenav:hover {
-                width: 100%;
-            }
-            .sidenav a span, .sidenav .nav-item span {
-                display: none;
-            }
-            .main-content {
-                margin-left: 0;
-                margin-top: 80px;
-                padding: 15px;
-            }
+        .sidenav {
+            width: 100%;
+            height: 70px;
+            flex-direction: row;
+            justify-content: space-around;
+            align-items: center;
+            padding-top: 0;
+            background: rgba(255, 240, 245, 0.95);  /* 半透明粉色背景，更显眼 */
+            backdrop-filter: blur(20px);
+            border-radius: 0 0 20px 20px;
+            box-shadow: 0 4px 15px rgba(255, 160, 180, 0.4);
+            z-index: 1000;
         }
+
+        /* 移动端图标变大，更容易点按 */
+        .sidenav a, .sidenav .nav-item {
+            font-size: 1.6rem;
+            padding: 10px 0;
+            justify-content: center;
+        }
+
+        /* 移动端不显示文字（保留简洁），如果想让文字也显示出来，可以去掉下面这句 */
+        .sidenav a span, .sidenav .nav-item span {
+            display: none;
+        }
+
+        /* 手机端点击时加个微动效 */
+        .sidenav a:active, .sidenav .nav-item:active {
+            transform: scale(0.9);
+            background: rgba(255, 182, 193, 0.3);
+            border-radius: 20px;
+        }
+
+        .main-content {
+            margin-left: 0;
+            margin-top: 90px;  /* 留出顶部导航栏的高度 */
+            padding: 15px;
+        }
+    }
 
         /* 浮动装饰 */
         .floating-emoji {
