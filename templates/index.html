@@ -4,18 +4,19 @@
 {% if stories %}
     <div class="row">
         {% for story in stories %}
-        <div class="col-md-6 col-lg-4 mb-4">
-            <a href="/story/{{ story.id }}" class="text-decoration-none">
-                <div class="story-card animate__animated animate__fadeInUp">
-                    <h5 class="fw-bold text-dark">{{ story.title }}</h5>
-                    <p class="mb-1 text-muted"><small>作者：{{ story.creator.username }}</small></p>
+            <div class="story-card">
+                <h5 class="fw-bold text-dark">{{ story.title }}</h5>
+                <p class="mb-1 text-muted"><small>作者：{{ story.creator.username }}</small></p>
+                <div>
+                    {% for tag in story.tags %}
+                    <span class="badge bg-info me-1">{{ tag.name }}</span>
+                    {% endfor %}
                     <span class="badge bg-{{ 'success' if story.status=='finished' else 'warning' }}">
                         {{ '已完结' if story.status=='finished' else '连载中' }}
                     </span>
-                    <p class="mt-2 mb-0 text-muted"><small>{{ story.created_at.strftime('%Y-%m-%d') }}</small></p>
-                </div>
-            </a>
-        </div>
+            </div>
+            <p class="mt-2 mb-0 text-muted"><small>{{ story.created_at.strftime('%Y-%m-%d') }}</small></p>
+            </div>
         {% endfor %}
     </div>
 {% else %}

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <h2 class="mb-3">🏷️ 管理标签</h2>
+
+    {# 添加新标签 #}
+    <div class="card mb-4">
+      <div class="card-header">➕ 新增标签</div>
+      <div class="card-body">
+        <form method="POST" class="row g-2 align-items-end">
+          <input type="hidden" name="action" value="add">
+          <div class="col-md-8">
+            <label for="new-tag-name" class="form-label">标签名称</label>
+            <input type="text" name="name" id="new-tag-name" class="form-control" placeholder="例如：奇幻、悬疑..." required>
+          </div>
+          <div class="col-md-4">
+            <button type="submit" class="btn btn-primary w-100">🌸 添加</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {# 标签列表 #}
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>📋 现有标签 ({{ tags|length }})</span>
+      </div>
+      <div class="card-body">
+        {% if tags %}
+          <div class="row">
+            {% for tag in tags %}
+            <div class="col-md-4 col-lg-3 mb-2">
+              <div class="d-flex justify-content-between align-items-center bg-light p-2 rounded-pill">
+                <span class="badge bg-info me-2">{{ tag.name }}</span>
+                <form method="POST" onsubmit="return confirm('确定删除标签「{{ tag.name }}」吗？')" class="d-inline">
+                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="tag_id" value="{{ tag.id }}">
+                  <button type="submit" class="btn btn-sm btn-outline-danger border-0 p-0 px-2">🗑️</button>
+                </form>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted text-center">暂无标签，快添加一个吧~</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

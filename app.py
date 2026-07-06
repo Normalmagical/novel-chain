@@ -15,7 +15,7 @@ import uuid
 import markdown as md_lib
 
 from config import Config
-from models import db, User, Story, Entry
+from models import db, User, Story, Entry, Tag
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -36,6 +36,12 @@ def load_user(user_id):
 # ---------- 初始化数据库 ----------
 with app.app_context():
     db.create_all()
+    # 如果标签表为空，插入默认标签
+    if not Tag.query.first():
+        default_tags = ['奇幻', '科幻', '爱情', '悬疑', '武侠', '都市', '历史', '同人', '搞笑', '惊悚']
+        for tag_name in default_tags:
+            db.session.add(Tag(name=tag_name))
+        db.session.commit()
 
 # ---------- 注册 Jinja2 过滤器：渲染 Markdown ----------
 @app.template_filter('markdown')
@@ -117,8 +123,8 @@ def logout():
 @login_required
 def create_story():
     if request.method == 'POST':
-        # 非管理员才检查每日限制
         if not current_user.is_admin:
+            # 每日限制（保持不变）
             today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
             today_count = Story.query.filter(
                 Story.creator_id == current_user.id,
@@ -127,25 +133,38 @@ def create_story():
             if today_count >= 1:
                 flash('每个账号每天只能创建一个新故事，请明天再来')
                 return redirect(url_for('create_story'))
-        # ------------------------------------------
+
         title = request.form['title'].strip()
         content = request.form['content']
         note = request.form.get('note', '').strip()
         if not title or not content:
             flash('标题和内容不能为空')
             return redirect(url_for('create_story'))
+
+        # 获取选中的标签 ID 列表
+        selected_tag_ids = request.form.getlist('tags')  # 如 ['1', '3', '5']
+        if len(selected_tag_ids) > 7:
+            flash('标签最多选择 7 个')
+            return redirect(url_for('create_story'))
+
         story = Story(title=title, creator=current_user, status='ongoing')
         db.session.add(story)
         db.session.flush()
-        entry = Entry(content=content,
-                      note=note if note else None,
-                      story_id=story.id,
-                      user_id=current_user.id)
+
+        # 关联标签
+        if selected_tag_ids:
+            tags = Tag.query.filter(Tag.id.in_(selected_tag_ids)).all()
+            story.tags.extend(tags)
+
+        entry = Entry(content=content, note=note if note else None,
+                      story_id=story.id, user_id=current_user.id)
         db.session.add(entry)
         db.session.commit()
         return redirect(url_for('story_detail', story_id=story.id))
-    # GET 请求使用局部渲染
-    return render_page('create_story.html', 'create_story_content.html')
+
+    # GET：加载所有标签供选择
+    all_tags = Tag.query.order_by(Tag.name).all()
+    return render_page('create_story.html', 'create_story_content.html', all_tags=all_tags)
 
 # ---------- 故事详情 + 接龙 ----------
 @app.route('/story/<int:story_id>', methods=['GET', 'POST'])
@@ -203,6 +222,35 @@ def upload_image():
         url = url_for('static', filename=f'uploads/{filename}')
         return {'url': url}
     return {'error': '不支持的文件类型'}, 400
+
+@app.route('/admin/tags', methods=['GET', 'POST'])
+@login_required
+def admin_tags():
+    if not current_user.is_admin:
+        flash('仅管理员可访问')
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        action = request.form.get('action')
+        if action == 'add':
+            name = request.form.get('name', '').strip()
+            if name and not Tag.query.filter_by(name=name).first():
+                db.session.add(Tag(name=name))
+                db.session.commit()
+                flash(f'标签 "{name}" 已添加')
+            else:
+                flash('标签名不能为空或已存在')
+        elif action == 'delete':
+            tag_id = request.form.get('tag_id')
+            tag = Tag.query.get(tag_id)
+            if tag:
+                db.session.delete(tag)
+                db.session.commit()
+                flash(f'标签 "{tag.name}" 已删除')
+        return redirect(url_for('admin_tags'))
+    
+    tags = Tag.query.order_by(Tag.name).all()
+    return render_template('admin_tags.html', tags=tags)
 
 # ---------- 导出 HTML ----------
 @app.route('/story/<int:story_id>/export')

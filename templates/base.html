@@ -271,6 +271,9 @@
         <a href="/" hx-get="/" hx-target="#main-content" hx-push-url="true" hx-swap="innerHTML"><span>🏠</span> <span>首页</span></a>
         {% if current_user.is_authenticated %}
             <a href="/story/create" hx-get="/story/create" hx-target="#main-content" hx-push-url="true" hx-swap="innerHTML"><span>✏️</span> <span>新故事</span></a>
+            {% if current_user.is_admin %}
+                <a href="/admin/tags"><span>🏷️</span> <span>管理标签</span></a>
+            {% endif %}
             <!-- 退出登录最好用全页面刷新，防止状态不同步 -->
             <a href="/logout"><span>🚪</span> <span>退出</span></a>
             <div class="nav-item" style="margin-top: auto; color: #d47a8c;"><span>👤</span> <span>{{ current_user.username }}</span></div>

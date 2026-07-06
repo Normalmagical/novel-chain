@@ -26,6 +26,11 @@
       </form>
     {% endif %}
   </div>
+  <div>
+  {% for tag in story.tags %}
+    <span class="badge bg-info me-1">{{ tag.name }}</span>
+  {% endfor %}
+  </div>
 </div>
 <hr>
 
