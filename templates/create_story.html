@@ -18,14 +18,18 @@
   <!-- 标签选择（新增） -->
   <div class="mb-3">
     <label class="form-label fw-semibold">标签 <small class="text-muted">(最多选7个)</small></label>
-    <div class="row">
+    
+    {# 🔍 新增搜索框 #}
+    <input type="text" id="tag-search" class="form-control mb-2" placeholder="🔍 搜索标签..." autocomplete="off">
+    
+    <div class="row" id="tag-list">
       {% for tag in all_tags %}
-        <div class="col-4 col-md-3 col-lg-2">
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" name="tags" value="{{ tag.id }}" id="tag{{ tag.id }}">
-            <label class="form-check-label" for="tag{{ tag.id }}">{{ tag.name }}</label>
-          </div>
+      <div class="col-4 col-md-3 col-lg-2 tag-item">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="tags" value="{{ tag.id }}" id="tag{{ tag.id }}">
+          <label class="form-check-label" for="tag{{ tag.id }}">{{ tag.name }}</label>
         </div>
+      </div>
       {% endfor %}
     </div>
     <div class="form-text">选出与故事相关的标签，方便读者找到你的故事。</div>
