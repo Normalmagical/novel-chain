@@ -212,21 +212,24 @@ def story_detail(story_id):
             editing_entry = entry
 
     if request.method == 'POST' and current_user.is_authenticated:
-        action = request.form.get('action', 'publish')  # publish 或 draft
+        action = request.form.get('action', 'publish')
         content = request.form.get('content', '').strip()
         note = request.form.get('note', '').strip()
-        entry_id = request.form.get('edit_entry_id')  # 如果编辑现有草稿
+        entry_id = request.form.get('edit_entry_id')
 
         if not content:
             flash('接龙内容不能为空')
         else:
             if entry_id:
-                # 编辑已有草稿
+                # 编辑草稿
                 entry = Entry.query.get(int(entry_id))
                 if entry and entry.user_id == current_user.id and entry.story_id == story.id and entry.status == 'draft':
                     entry.content = content
                     entry.note = note if note else None
                     if action == 'publish':
+                        if not can_chain:
+                            flash('当前不能发布，请先保存草稿')
+                            return redirect(url_for('story_detail', story_id=story.id))
                         entry.status = 'published'
                     db.session.commit()
                     flash('草稿已更新' if action == 'draft' else '段落已发布')
@@ -234,6 +237,10 @@ def story_detail(story_id):
                     flash('无权编辑该草稿')
             else:
                 # 新建条目
+                if action == 'publish' and not can_chain:
+                    flash('接龙规则不允许您现在发布（上一段是您写的或故事已完结）')
+                    return redirect(url_for('story_detail', story_id=story.id))
+                
                 entry = Entry(
                     content=content,
                     note=note if note else None,
