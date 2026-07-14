@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 from flask_login import AnonymousUserMixin
+from sqlalchemy import or_, and_
 from markupsafe import Markup
 from flask import (
     Flask, render_template, request, redirect,
@@ -35,13 +36,22 @@ def load_user(user_id):
 
 # ---------- 初始化数据库 ----------
 with app.app_context():
+    # 先确保基础表存在（对于初次运行）
     db.create_all()
-    # 如果标签表为空，插入默认标签
-    if not Tag.query.first():
-        default_tags = ['奇幻', '科幻', '爱情', '悬疑', '武侠', '都市', '历史', '同人', '搞笑', '惊悚']
-        for tag_name in default_tags:
-            db.session.add(Tag(name=tag_name))
-        db.session.commit()
+    
+    # ---------- 手动迁移：为 Entry 表添加 status 列（如果不存在） ----------
+    from sqlalchemy import text
+    with db.engine.connect() as conn:
+        # 检查列是否存在
+        result = conn.execute(text("PRAGMA table_info(entry)"))
+        columns = [row[1] for row in result]  # 列名在第二列
+        if 'status' not in columns:
+            conn.execute(text("ALTER TABLE entry ADD COLUMN status VARCHAR(20) DEFAULT 'published'"))
+            conn.execute(text("UPDATE entry SET status = 'published' WHERE status IS NULL"))
+            conn.commit()
+            print("✅ 数据库迁移完成：已添加 entry.status 字段")
+        else:
+            print("ℹ️ entry.status 字段已存在，无需迁移")
 
 # ---------- 注册 Jinja2 过滤器：渲染 Markdown ----------
 @app.template_filter('markdown')
@@ -170,9 +180,22 @@ def create_story():
 @app.route('/story/<int:story_id>', methods=['GET', 'POST'])
 def story_detail(story_id):
     story = Story.query.get_or_404(story_id)
-    entries = story.entries
-    last_entry = entries[-1] if entries else None
 
+    # 获取当前用户可见的条目（已发布 + 自己的草稿）
+    if current_user.is_authenticated:
+        entries = Entry.query.filter(
+            Entry.story_id == story.id,
+            db.or_(
+                Entry.status == 'published',
+                db.and_(Entry.status == 'draft', Entry.user_id == current_user.id)
+            )
+        ).order_by(Entry.created_at).all()
+    else:
+        entries = Entry.query.filter_by(story_id=story.id, status='published').order_by(Entry.created_at).all()
+
+    # 判断是否可以接龙（基于最后一条已发布条目）
+    published_entries = [e for e in entries if e.status == 'published']
+    last_entry = published_entries[-1] if published_entries else None
     can_chain = True
     if last_entry and current_user.is_authenticated:
         if last_entry.user_id == current_user.id:
@@ -180,20 +203,52 @@ def story_detail(story_id):
     if story.status == 'finished':
         can_chain = False
 
-    if request.method == 'POST' and current_user.is_authenticated and can_chain:
+    # 编辑草稿的支持
+    editing_entry = None
+    edit_entry_id = request.args.get('edit_entry')
+    if edit_entry_id and current_user.is_authenticated:
+        entry = Entry.query.get(int(edit_entry_id))
+        if entry and entry.user_id == current_user.id and entry.story_id == story.id and entry.status == 'draft':
+            editing_entry = entry
+
+    if request.method == 'POST' and current_user.is_authenticated:
+        action = request.form.get('action', 'publish')  # publish 或 draft
         content = request.form.get('content', '').strip()
         note = request.form.get('note', '').strip()
+        entry_id = request.form.get('edit_entry_id')  # 如果编辑现有草稿
+
         if not content:
             flash('接龙内容不能为空')
         else:
-            entry = Entry(content=content, note=note if note else None,
-                          story_id=story.id, user_id=current_user.id)
-            db.session.add(entry)
-            db.session.commit()
+            if entry_id:
+                # 编辑已有草稿
+                entry = Entry.query.get(int(entry_id))
+                if entry and entry.user_id == current_user.id and entry.story_id == story.id and entry.status == 'draft':
+                    entry.content = content
+                    entry.note = note if note else None
+                    if action == 'publish':
+                        entry.status = 'published'
+                    db.session.commit()
+                    flash('草稿已更新' if action == 'draft' else '段落已发布')
+                else:
+                    flash('无权编辑该草稿')
+            else:
+                # 新建条目
+                entry = Entry(
+                    content=content,
+                    note=note if note else None,
+                    story_id=story.id,
+                    user_id=current_user.id,
+                    status='published' if action == 'publish' else 'draft'
+                )
+                db.session.add(entry)
+                db.session.commit()
+                flash('段落已发布' if action == 'publish' else '草稿已保存')
             return redirect(url_for('story_detail', story_id=story.id))
-    # 使用局部渲染
+
     return render_page('story_detail.html', 'story_detail_content.html',
-                       story=story, entries=entries, can_chain=can_chain)
+                       story=story, entries=entries, can_chain=can_chain,
+                       editing_entry=editing_entry)
 
 # ---------- 完结故事 ----------
 @app.route('/story/<int:story_id>/finish', methods=['POST'])
@@ -501,14 +556,15 @@ def delete_story(story_id):
 @login_required
 def delete_entry(story_id, entry_id):
     story = Story.query.get_or_404(story_id)
-    if story.creator_id != current_user.id and not current_user.is_admin:
-        flash('只有故事创建者或管理员才能删除接龙段落')
-        return redirect(url_for('story_detail', story_id=story.id))
-
     entry = Entry.query.get_or_404(entry_id)
     if entry.story_id != story.id:
         flash('段落不属于此故事')
-        return redirect(url_for('story_detail', story_id=story.id))
+        return redirect(...)
+
+    # 允许删除的条件：故事创建者、管理员，或者草稿的作者本人
+    if story.creator_id != current_user.id and not current_user.is_admin and not (entry.status == 'draft' and entry.user_id == current_user.id):
+        flash('无权删除此段落')
+        return redirect(...)
 
     db.session.delete(entry)
     db.session.commit()
